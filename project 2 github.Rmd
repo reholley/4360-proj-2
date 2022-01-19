@@ -1,0 +1,377 @@
+---
+title: "STAT 4360 Project 2"
+output: pdf_document
+---
+Mini Project #2
+Name: Rachel Holley
+
+
+# Problem 1
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+#loading in packages
+library(tidyverse)
+library(ggplot2)
+library(purrr)
+library(ggpubr)
+library(corrplot)
+library(Hmisc)
+library(MASS)
+library(vioplot)
+library(car)
+library(caret)
+library(pROC)
+
+# importing data
+wine <- read.table(file = "wine.txt", header = TRUE, sep = "", dec = ".")
+admission <- read.table(file = "admission.csv", header = TRUE, sep = ",", dec = ".")
+diabetes <- read.table(file = "diabetes.csv", header = TRUE, sep = ",", dec = ".")
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# creating a correlation plot with the wine data
+wine.cor = cor(wine, method = c("spearman"))
+wine.rcorr = rcorr(as.matrix(wine))
+wine.rcorr
+corrplot(wine.cor)
+
+# creating histograms for all predictor variables
+clarity_hist <- ggplot(data = wine) +
+  geom_histogram(mapping = aes(x = Clarity), binwidth = 0.1)
+
+aroma_hist <- ggplot(data = wine) +
+  geom_histogram(mapping = aes(x = Aroma), binwidth = 0.1)
+
+body_hist <- ggplot(data = wine) +
+  geom_histogram(mapping = aes(x = Body), binwidth = 0.1)
+
+flavor_hist <- ggplot(data = wine) +
+  geom_histogram(mapping = aes(x = Flavor), binwidth = 0.1)
+
+oak_hist <- ggplot(data = wine) +
+  geom_histogram(mapping = aes(x = Oakiness), binwidth = 0.1)
+
+region_hist <- ggplot(data = wine) +
+  geom_histogram(mapping = aes(x = Region), binwidth = 0.1)
+
+ggarrange(clarity_hist,aroma_hist,body_hist,flavor_hist,oak_hist,region_hist)
+
+# changing to factor
+wine$Region <- as.factor(wine$Region)
+
+# creating scatterplots between the response and each predictor individually
+par(mfrow = c(2,3))
+plot(wine$Clarity, wine$Quality)
+lines(lowess(wine$Quality~wine$Clarity), col="blue")
+plot(wine$Aroma, wine$Quality)
+lines(lowess(wine$Quality~wine$Aroma), col="blue")
+plot(wine$Body, wine$Quality)
+plot(wine$Flavor, wine$Quality)
+plot(wine$Oakiness, wine$Quality)
+plot(wine$Region, wine$Quality)
+
+# scatter plot with all variables
+pairs(~ Quality + Clarity + Aroma + Body + Flavor + Region, data = wine,
+   main="Simple Scatterplot Matrix")
+
+# creating boxplots between the response and each predictor individually
+par(mfrow = c(2,3))
+boxplot(Quality~Clarity,data=wine)
+boxplot(Quality~Aroma,data=wine)
+boxplot(Quality~Body,data=wine)
+boxplot(Quality~Flavor,data=wine)
+boxplot(Quality~Oakiness,data=wine)
+boxplot(Quality~Region,data=wine)
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# # creating simple linear regression models between response 
+# and each predictor and graphing them
+
+# Clarity
+clm <- lm(Quality~Clarity, data = wine)
+summary(clm)
+
+ggplot(wine, aes(x = Clarity, y = Quality)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+
+# Aroma
+alm <- lm(Quality~Aroma, data = wine)
+summary(alm)
+
+ggplot(wine, aes(x = Aroma, y = Quality)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+
+# Body
+blm <- lm(Quality~Body, data = wine)
+summary(blm)
+
+ggplot(wine, aes(x = Body, y = Quality)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+
+# Flavor
+flm <- lm(Quality~Flavor, data = wine)
+summary(flm)
+
+ggplot(wine, aes(x = Flavor, y = Quality)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+
+# Oakiness
+olm <- lm(Quality~Oakiness, data = wine)
+summary(olm)
+
+ggplot(wine, aes(x = Oakiness, y = Quality)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+
+# Region
+rlm <- lm(Quality~Region, data = wine)
+summary(rlm)
+
+ggplot(wine, aes(x = Region, y = Quality)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+
+# comparing the simple linear regression models to one another
+anova(clm,alm,blm,flm,olm,rlm)
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# creating a multiple linear regression model with all predictors included
+mlm_1 <- lm(Quality ~ Clarity + Aroma + Body + Flavor + Oakiness + Region, 
+            data = wine)
+summary(mlm_1)
+
+# plotting the residuals to see if transformation is needed
+residualPlot(mlm_1, type = "rstudent", quadratic = F, pch = 20, cex = 1.5, 
+             cex.axis = 1.5, cex.lab = 1.5)
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# testing different predictor combinations
+mlm_2 <- lm(Quality ~ Aroma + Body + Flavor + Region, data = wine)
+summary(mlm_2)
+
+mlm_3 <- lm(Quality ~ Aroma + Body + Flavor, data = wine)
+summary(mlm_3)
+
+mlm_4 <- lm(Quality ~ Flavor + Region, data = wine)
+summary(mlm_4)
+```
+
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# finalizing linear model
+finalModel <- lm(Quality ~ Flavor + Region, data = wine)
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# creating a new dataframe with only rows that indicate the region is 1 
+# and then setting Flavor to the sample mean
+wineReg_1 <- subset(wine, Region == '1')
+wineReg_1$Flavor <- mean(wineReg_1$Flavor)
+
+# predicting model with prediction and confidence intervals at 95%
+predictReg_1 <- predict(finalModel, data = wineReg_1, interval = 'prediction', 
+                        level = 0.95)
+confidReg_1 <- predict(finalModel, data = wineReg_1, interval = 'confidence', 
+                       level = 0.95)
+
+# results of predictions
+summary(predictReg_1)
+summary(confidReg_1)
+```
+
+
+# Problem 2
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# changing to factor
+admission$Group <- as.factor(admission$Group)
+
+# creating the test and training sets with test having the first five rows of 
+# each group and training having the rest
+testRow <- c(1:5, 32:36, 60:64)
+trainRow <- c(6:31, 37:59, 65:85)
+
+# putting those subsets into dataframes
+test <- admission[testRow,]
+train <- admission[trainRow,]
+
+# seperating variables into response and predictors for test and train
+testX <- test[,1:2]
+testY <- test[,3]
+
+trainX <- train[, 1:2]
+trainY <- train[, 3]
+
+# plotting histograms to see a general distribution of GPA's and GMAT scores
+hist(train$GPA, main = "Histogram of GPA's", xlab = "GPA", xlim= c(2,4), 
+     freq = FALSE, col = "darkseagreen")
+hist(train$GMAT, main = "Histogram of GMAT Scores", xlab = 'GMAT', 
+     xlim= c(313,693), freq = FALSE, col = "darkslategray3")
+
+# plotting violin plots to see the distribution of GPA and GMAT among the three 
+# groups
+gpa1 <- train$GPA[train$Group==1]
+gpa2 <- train$GPA[train$Group==2]
+gpa3 <- train$GPA[train$Group==3]
+vioplot(gpa1, gpa2, gpa3, names=c("group 1", "group 2", "group 3"),
+   col="darksalmon")
+title("Violin Plots of GPA's per Group")
+
+gmat1 <- train$GMAT[train$Group==1]
+gmat2 <- train$GMAT[train$Group==2]
+gmat3 <- train$GMAT[train$Group==3]
+vioplot(gmat1, gmat2, gmat3, names=c("group 1", "group 2", "group 3"),
+   col="darksalmon")
+title("Violin Plots of GMAT's per Group")
+
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# applying LDA to the training data and predicting values
+lda_2b <- lda(Group~., data = train)
+ldaPred_2 <- predict(lda_2b, admission)
+
+# creating the confusion matrix
+confMat_2b <- table(ldaPred_2$class, admission$Group)
+print(confMat_2b)
+
+# calculating the misclassification rate
+misclassRate_2b <- 1 - (confMat_2b[1,1] + confMat_2b[2,2] + confMat_2b[3,3])/85
+
+# creating grids to calculate the decision boundary
+nGrid <- 200
+x1Grid <- seq(f = min(trainX[, 1]), t = max(trainX[, 1]), l = nGrid)
+x2Grid <- seq(f = min(trainX[, 2]), t = max(trainX[, 2]), l = nGrid)
+grid <- expand.grid(x1Grid, x2Grid)
+colnames(grid) <- colnames(trainX)
+
+predGrid <- predict(lda_2b, grid)
+
+prob_1 <- matrix(predGrid$posterior[, "1"], nrow = nGrid, ncol = nGrid, 
+                 byrow = F)
+prob_2 <- matrix(predGrid$posterior[, "2"], nrow = nGrid, ncol = nGrid, 
+                 byrow = F)
+
+# plotting the model with the decision boundary
+plot(trainX, col = ifelse(trainY == "1", "green", 
+                          ifelse(trainY == "2", "red", "blue")))
+
+contour(x1Grid, x2Grid, prob_1, levels = 0.5, labels = "", xlab = "", ylab = "", 
+        main = "", add = T)
+contour(x1Grid, x2Grid, prob_2, levels = 0.5, labels = "", xlab = "", ylab = "", 
+        main = "", add = T)
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# applying QDA to the training data and predicting values
+qda_2c <- qda(Group~., data = train)
+qdaPred_2 <- predict(qda_2c, admission)
+
+# creating the confusion matrix
+confMat_2c <- table(qdaPred_2$class, admission$Group)
+confMat_2c
+
+# calculating the misclassification rate
+misclassRate_2c <- 1 - (confMat_2c[1,1] + confMat_2c[2,2] + confMat_2c[3,3])/85
+
+# creating grids to calculate the decision boundary
+nGrid <- 200
+x1Grid <- seq(f = min(trainX[, 1]), t = max(trainX[, 1]), l = nGrid)
+x2Grid <- seq(f = min(trainX[, 2]), t = max(trainX[, 2]), l = nGrid)
+grid <- expand.grid(x1Grid, x2Grid)
+colnames(grid) <- colnames(trainX)
+
+predGrid <- predict(qda_2c, grid)
+
+prob_1 <- matrix(predGrid$posterior[, "1"], nrow = nGrid, ncol = nGrid, byrow = F)
+prob_2 <- matrix(predGrid$posterior[, "2"], nrow = nGrid, ncol = nGrid, byrow = F)
+
+# plotting the model with the decision boundary
+plot(trainX, col = ifelse(trainY == "1", "green", 
+                          ifelse(trainY == "2", "red", "blue")))
+
+contour(x1Grid, x2Grid, prob_1, levels = 0.5, labels = "", xlab = "", ylab = "", 
+        main = "", add = T)
+contour(x1Grid, x2Grid, prob_2, levels = 0.5, labels = "", xlab = "", ylab = "", 
+        main = "", add = T)
+```
+# Problem 3
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# exploring the dataset
+describe(diabetes)
+
+# finding correlations within the dataset
+diabetes.cor = cor(diabetes, method = c("spearman"))
+diabetes.rcorr = rcorr(as.matrix(diabetes))
+diabetes.rcorr
+corrplot(diabetes.cor)
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# changing to a factor
+diabetes$Outcome <- as.factor(diabetes$Outcome)
+
+# applying LDA to the training data and predicting values
+lda_3b <- lda(Outcome~., data = diabetes)
+ldaPred_3b <- predict(lda_3b, diabetes)
+
+# creating confusion matrix
+confMat_3b <- table(ldaPred_3b$class, diabetes$Outcome)
+confMat_3b
+
+# calculating misclassification rate
+misclassRate_3b <- (confMat_3b[1,2] + confMat_3b[2,1])/2000
+
+# finding the sensitivity and specificity of the data
+sensitivity(confMat_3b)
+specificity(confMat_3b)
+
+# creating curve for sensitivity and specificity
+ldaRoc <- roc(diabetes$Outcome, ldaPred_3b$posterior[, "0"], 
+              levels = c("0", "1"))
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# applying QDA to the training data and predicting values
+qda_3c <- qda(Outcome~., data = diabetes)
+qdaPred_3c <- predict(qda_3c, diabetes)
+
+# creating confusion matrix
+confMat_3c <- table(qdaPred_3c$class, diabetes$Outcome)
+confMat_3c
+
+# calculating misclassification rate
+misclassRate_3c <- (confMat_3b[1,2] + confMat_3b[2,1])/2000
+
+# finding the sensitivity and specificity of the data
+sensitivity(confMat_3c)
+specificity(confMat_3c)
+
+# creating curve for sensitivity and specificity
+qdaRoc <- roc(diabetes$Outcome, qdaPred_3c$posterior[, "0"], 
+              levels = c("0", "1"))
+```
+
+```{r, fig.show = 'hide', results = 'hide', message = FALSE, warning = FALSE}
+# plotting and comparing the sensitivity vs. specificity curves
+plot(ldaRoc, legacy.axes = T, col = "purple")
+plot(qdaRoc, add = T, col = "orange")
+```
+
+
+
+
+
+
+
+
+
